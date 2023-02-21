@@ -2,7 +2,8 @@ pub mod request;
 
 use std::io::Write;
 use std::sync::Arc;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_http::HttpMessage;
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, HttpRequest};
 use actix_web::middleware::{DefaultHeaders, Logger};
 use log::LevelFilter;
 use env_logger::Builder;
@@ -10,7 +11,7 @@ use env_logger::fmt::Color;
 use crate::request::RequestHandler;
 use chrono::Local;
 use lazy_static::lazy_static;
-use sea_orm::{Database, DatabaseConnection, DatabaseTransaction, TransactionTrait};
+use sea_orm::{ConnectionTrait, Database, DatabaseBackend, DatabaseConnection, DatabaseTransaction, Statement, TransactionTrait};
 
 
 
@@ -52,7 +53,15 @@ async fn echo(req_body: String) -> impl Responder {
     HttpResponse::Ok().body(req_body)
 }
 
-async fn manual_hello() -> impl Responder {
+async fn manual_hello(_req: HttpRequest) -> impl Responder {
+    let ex = _req.extensions();
+    let trx = ex.get::<DatabaseTransaction>().unwrap();
+    trx.execute(Statement::from_string(
+        DatabaseBackend::Postgres,
+        "INSERT INTO checker (name, age) VALUES ('Vasanth', 2);".to_owned(),
+    )).await.expect("error");
+
+    trx.commit().await.expect("error");
     HttpResponse::Ok().body("Hey there!")
 }
 
